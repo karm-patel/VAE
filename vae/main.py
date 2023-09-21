@@ -8,11 +8,20 @@ import torchvision.transforms as transforms
 from PIL import Image
 from model import VAE
 
-# Load dataset
+# Configuration
+DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+X_DIM = 784
+Z_DIM = 20
+H_DIM = 200
+NUM_EPOCHS = 10
+BATCH_SIZE = 32
+LR_RATE = 3e-4
 DATA_DIR_PATH = os.path.join(os.getcwd(), 'data')
 DATA_PATH = os.path.join(DATA_DIR_PATH, 'afhq')
 DATA_URL = 'https://www.kaggle.com/datasets/andrewmvd/animal-faces/download?datasetVersionNumber=1'
 
+
+# Prepare custom Dataloader class
 class AnimalfaceDataset(Dataset):
     def __init__(self, type='train', transform=None) -> None:
         # self.root_dir specifies weather you are at afhq/train or afhq/val directory
@@ -22,9 +31,8 @@ class AnimalfaceDataset(Dataset):
         image_names = []
         for category in subdir:
             subdir_path = os.path.join(self.root_dir, category)
-            image_names+=os.listdir(subdir_path)
-        self.image_names = natsorted(image_names)
-        
+            image_names+=[os.path.join(category,i) for i in os.listdir(subdir_path)]
+        self.image_names = natsorted(image_names)   
     
     def __getitem__(self, idx):
         # Get the path to the image 
@@ -41,23 +49,15 @@ class AnimalfaceDataset(Dataset):
     
 transform = transforms.Compose([transforms.ToTensor()])
 train_data = AnimalfaceDataset(transform=transform)
-train_loader = DataLoader(train_data, batch_size=128, shuffle=True)
+train_loader = DataLoader(train_data, batch_size=BATCH_SIZE, shuffle=True)
 val_data = AnimalfaceDataset(type='val', transform=transform)
-val_loader = DataLoader(val_data, batch_size=128, shuffle=True)
+val_loader = DataLoader(val_data, batch_size=BATCH_SIZE, shuffle=True)
 
-# Configuration
-device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-INPUT_DIM = 784
-Z_DIM = 20
-H_DIM = 200
-NUM_EPOCHS = 10
-BATCH_SIZE = 32
-LR_RATE = 3e-4
 
 # Train
-model = VAE()
-optim = torch.optim.Adam(model.parameters(), lr=LR_RATE, weight_decay=1e-5)
-for i in NUM_EPOCHS:
+model = VAE(X_DIM, H_DIM, Z_DIM)
+optim = torch.optim.Adam(model.parameters(), lr=LR_RATE)  # , weight_decay=1e-5
+for i in range(NUM_EPOCHS):
     for itr,x in enumerate(train_loader):
         x_hat = model(x)
         loss = ((x - x_hat)**2).sum() + model.enc.kl
@@ -68,7 +68,7 @@ for i in NUM_EPOCHS:
         optim.step()
 
 
-
-if __name__=='__main__':
-    obj = AnimalfaceDataset(type='val')
-    print(obj.__len__())
+# # for personal testing
+# if __name__=='__main__':
+#     obj = AnimalfaceDataset(type='val')
+#     print(obj.__len__())
