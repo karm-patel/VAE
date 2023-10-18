@@ -20,15 +20,15 @@ device = torch.device("cuda")
 cpu_device = torch.device("cpu")
 
 class Encoder(nn.Module):
-    def __init__(self, conv_op_size = (32,14,14), enc_op_size=2048, filters = [3,12,24,48,128],  kernel_sizes = [3, 3, 3, 3], 
-                 strides = [2, 2, 2, 2], hiddens_sizes = [2048, 1024, 512, 256, 3], return_only_conv=False, return_only_liner=False, droput_prob=0.2):
+    def __init__(self, filters,  kernel_sizes,  strides, hiddens_sizes, paddings, 
+                 return_only_conv=False, return_only_liner=False, droput_prob=0.1):
         super(Encoder, self).__init__()
         
         self.return_only_conv = return_only_conv
         self.return_only_liner = return_only_liner
         conv_layers = []
         for i in range(len(kernel_sizes)):
-            conv_layers.append(nn.Conv2d(filters[i], filters[i+1], kernel_sizes[i], stride=strides[i]))
+            conv_layers.append(nn.Conv2d(filters[i], filters[i+1], kernel_sizes[i], strides[i], paddings[i]))
             conv_layers.append(nn.ReLU(True))
 
         self.conv_layer = nn.Sequential(*conv_layers)
@@ -41,9 +41,10 @@ class Encoder(nn.Module):
         self.liner_layer = nn.Sequential(*hidden_layers[:-1])
         
         
-    def forward(self, x, ):
+    def forward(self, x):
         if self.return_only_conv:
             x = self.conv_layer(x)
+            x = x.flatten(start_dim=1)
             return x
         elif self.return_only_liner:
             x = x.flatten(start_dim=1)
@@ -57,9 +58,8 @@ class Encoder(nn.Module):
 
     
 class Decoder(nn.Module):
-    def __init__(self, conv_op_size = (32,14,14), dec_ip_size=2048,  filters = [3,12,24,48,128],
-                   kernel_sizes = [3, 3, 3, 3], strides = [2, 2, 2, 2], output_paddings = [0,0,0,0], 
-                   paddings = [0,0,0,0], hiddens_sizes = [2048, 1024, 512, 256, 3], return_only_conv=False, return_only_liner=False, droput_prob=0.2):
+    def __init__(self, conv_op_size,  filters, kernel_sizes, strides, output_paddings, 
+                   paddings, hiddens_sizes, return_only_conv=False, return_only_liner=False, droput_prob=0.1):
         super(Decoder, self).__init__()
         self.return_only_conv = return_only_conv
         self.return_only_liner = return_only_liner
@@ -113,12 +113,14 @@ class AutoEncoder(nn.Module):
         if return_only_liner=True, then conv_ip_size = (3, 128, 128) and hidden_sizes [3*128*128, ... , features_size]
         '''
         super(AutoEncoder, self).__init__()
-        self.encoder = Encoder(enc_op_size=feature_size, conv_op_size=conv_ip_size, filters=filters, 
+        self.encoder = Encoder(filters=filters, 
                                kernel_sizes=kernel_sizes,strides=strides, hiddens_sizes=hiddens_sizes, 
-                               return_only_conv=return_only_conv, return_only_liner=return_only_liner, droput_prob=droput_prob)
-        self.decoder = Decoder(dec_ip_size=feature_size, conv_op_size=conv_ip_size, filters=filters[::-1], 
-                               kernel_sizes=kernel_sizes[::-1],strides=strides[::-1], output_paddings=output_paddings,
-                                 paddings=paddings, hiddens_sizes=hiddens_sizes[::-1] , return_only_liner=return_only_liner, droput_prob=droput_prob)
+                               return_only_conv=return_only_conv, return_only_liner=return_only_liner, 
+                               droput_prob=droput_prob, paddings=paddings)
+        
+        self.decoder = Decoder(conv_op_size=conv_ip_size, filters=filters[::-1], 
+                               kernel_sizes=kernel_sizes[::-1],strides=strides[::-1], output_paddings=output_paddings[::-1],
+                                 paddings=paddings[::-1], hiddens_sizes=hiddens_sizes[::-1] , return_only_liner=return_only_liner)
     
     def forward(self,x):
         enc = self.encoder(x)

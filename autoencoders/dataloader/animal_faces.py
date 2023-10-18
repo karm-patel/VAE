@@ -23,7 +23,7 @@ device = torch.device("cuda")
 cpu_device = torch.device("cpu")
 
 class AnimalfaceDataset(Dataset):
-    def __init__(self, transform, type='train', label_dict = {"dog":0, "cat":1, "wild":2}) -> None:
+    def __init__(self, transform, type='train', label_dict = {"dog":0, "cat":1, "wild":2} , img_width=128) -> None:
         self.transform = transform
         # self.root_dir specifies weather you are at afhq/train or afhq/val directory
         self.label_dict = label_dict
@@ -37,7 +37,7 @@ class AnimalfaceDataset(Dataset):
             self.image_names+=os.listdir(subdir_path)
         
 
-        self.img_arr = torch.zeros((len(self.image_names), 3, 128 ,128))
+        self.img_arr = torch.zeros((len(self.image_names), 3, img_width ,img_width))
         self.labels = torch.zeros(len(self.image_names))
             
         for i,img_name in enumerate(tqdm(self.image_names)):
