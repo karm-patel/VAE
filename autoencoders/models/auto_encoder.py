@@ -37,8 +37,11 @@ class Encoder(nn.Module):
         for i in range(len(hiddens_sizes)-1):
             hidden_layers.append(nn.Dropout(p=droput_prob))
             hidden_layers.append(nn.Linear(hiddens_sizes[i], hiddens_sizes[i+1]))
-            hidden_layers.append(nn.ReLU(True))
-        self.liner_layer = nn.Sequential(*hidden_layers[:-1])
+            if i < len(hiddens_sizes)-2:
+                hidden_layers.append(nn.ReLU(True))
+
+            # hidden_layers.append(nn.ReLU(True))
+        self.liner_layer = nn.Sequential(*hidden_layers)
         
         
     def forward(self, x):
@@ -69,15 +72,19 @@ class Decoder(nn.Module):
         for i in range(len(hiddens_sizes)-1):
             hidden_layers.append(nn.Dropout(p=droput_prob))
             hidden_layers.append(nn.Linear(hiddens_sizes[i], hiddens_sizes[i+1]))
-            hidden_layers.append(nn.ReLU(True))
+            if i < len(hiddens_sizes)-2:
+                hidden_layers.append(nn.ReLU(True))
+            # hidden_layers.append(nn.ReLU(True))
         
-        self.liner_layer = nn.Sequential(*hidden_layers[:-1])
+        self.liner_layer = nn.Sequential(*hidden_layers)
 
         conv_layers = []
         for i in range(len(kernel_sizes)):
             conv_layers.append(nn.ConvTranspose2d(filters[i], filters[i+1], kernel_sizes[i], 
                                                   stride=strides[i], output_padding=output_paddings[i], padding=paddings[i]))
-            conv_layers.append(nn.ReLU(True))
+            if i < len(kernel_sizes)-1:
+                conv_layers.append(nn.ReLU(True))
+
 
         self.conv_layer = nn.Sequential(*conv_layers)
         
