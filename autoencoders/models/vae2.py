@@ -44,9 +44,7 @@ class Encoder(nn.Module):
             if i < len(hiddens_sizes_cpy)-2:
                 hidden_layers.append(nn.ReLU(True))
         self.liner_layer = nn.Sequential(*hidden_layers)
-
-
-        
+       
     def forward(self, x):
         if self.return_only_conv:
             x = self.conv_layer(x)
@@ -65,8 +63,11 @@ class Encoder(nn.Module):
         z_dim = z.shape[-1]//2
         mu, log_var = z[:, :z_dim], z[:, z_dim:]
         sigma = torch.exp(0.5*log_var)
-        eps = torch.randn(z_dim).to(torch.device(self.curr_device))
-        z = mu + sigma*eps
+        eps = torch.randn((z_dim, self.n_samples)).to(torch.device(self.curr_device))
+        z = []
+        for i in range(self.n_samples):
+            z.append(mu + sigma*eps[:,i])
+        z = torch.stack(z)
         return z, mu, log_var
 
     
@@ -94,8 +95,7 @@ class Decoder(nn.Module):
             if i < len(kernel_sizes)-1:
                 conv_layers.append(nn.ReLU(True))
 
-        self.conv_layer = nn.Sequential(*conv_layers)
-        
+        self.conv_layer = nn.Sequential(*conv_layers)        
         self.unflatten = nn.Unflatten(dim=1, unflattened_size=conv_op_size)
         
         
@@ -140,7 +140,8 @@ class VAE(nn.Module):
     def forward(self,x):
         enc, mu, logvar = self.encoder(x)
         x_hat = self.decoder(enc)
-        return x_hat, enc, mu, logvar
+        x_hat_avg = x_hat.mean(dim=0)
+        return x_hat_avg, enc, mu, logvar
 
     def loss_fn(self, x, x_hat, mu, logvar, beta=1):
         mse_loss = nn.MSELoss(reduction="sum")(x, x_hat)

@@ -18,6 +18,7 @@ import matplotlib.pyplot as plt
 from tqdm import tqdm
 import torchmetrics
 from dataloader.animal_faces import AnimalfaceDataset
+from models.vae2 import VAE, Encoder, Decoder
 
 
 # Load dataset
@@ -55,7 +56,6 @@ x, y = next(iter(train_loader))
 print(x.shape, y.shape)
 # show_img(x)
 
-from models.vae import VAE, Encoder, Decoder
 # %reload_ext autoreload
 # %autoreload 2
 
