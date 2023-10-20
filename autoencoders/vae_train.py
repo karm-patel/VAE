@@ -1,5 +1,5 @@
 import os
-os.environ["CUDA_VISIBLE_DEVICES"] = "7"
+os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 
 import zipfile
 # from natsort import natsorted
@@ -18,6 +18,7 @@ import matplotlib.pyplot as plt
 from tqdm import tqdm
 import torchmetrics
 from dataloader.animal_faces import AnimalfaceDataset
+from torchvision.utils import save_image, make_grid
 
 # Load dataset
 device = torch.device("cuda")
@@ -60,7 +61,8 @@ from models.vae2 import VAE, Encoder, Decoder
 
 n_samples = 4
 beta = 10
-for feature_size in [64, 32, 16]:
+for feature_size in [128]:
+    n_epochs = 70
     filters = [3, 16, 32, 64, 128, 256]
     kernel_sizes = [4, 4, 4, 4, 4]
     strides = [2,2,2,2,2]
@@ -98,8 +100,7 @@ for feature_size in [64, 32, 16]:
     # summary(ae, (3,32,32), device="cuda")
     # summary(vae, (3,width,width), device="cuda")
 
-    n_epochs = 100
-    beta = 10
+    
     optim = torch.optim.Adam(vae.parameters(), lr=1e-4)
     losses = []
     val_losses = []
