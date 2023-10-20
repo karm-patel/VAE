@@ -144,7 +144,7 @@ class VAE(nn.Module):
 
     def loss_fn(self, x, x_hat, mu, logvar, beta=1):
         mse_loss = nn.MSELoss(reduction="sum")(x, x_hat)
-        kl_loss = -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp())
+        kl_loss = torch.sum(-0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp(), dim=1))
         return mse_loss+ beta*kl_loss, mse_loss, kl_loss
 
 

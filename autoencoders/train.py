@@ -143,7 +143,7 @@ op, enc, mu, logvar = vae(x.to(device))
 print(op.shape, enc.shape)
 
 # summary(ae, (3,32,32), device="cuda")
-summary(vae, (3,width,width), device="cuda")
+# summary(vae, (3,width,width), device="cuda")
 
 
 n_epochs = 100

@@ -19,10 +19,10 @@ import torchmetrics
 device = torch.device("cuda")
 cpu_device = torch.device("cpu")
 
-class Encoder(nn.Module):
+class Encoder_vae(nn.Module):
     def __init__(self, filters,  kernel_sizes,  strides, hiddens_sizes, paddings, 
                  return_only_conv=False, return_only_liner=False, droput_prob=0.1, curr_device="cuda", n_samples=5):
-        super(Encoder, self).__init__()
+        super(Encoder_vae, self).__init__()
         
         self.curr_device = curr_device
         self.return_only_conv = return_only_conv
@@ -96,7 +96,7 @@ class Decoder(nn.Module):
                 conv_layers.append(nn.ReLU(True))
 
         self.conv_layer = nn.Sequential(*conv_layers)        
-        self.unflatten = nn.Unflatten(dim=1, unflattened_size=conv_op_size)
+        self.unflatten = nn.Unflatten(dim=2, unflattened_size=conv_op_size)
         
         
     def forward(self, x):
@@ -114,38 +114,41 @@ class Decoder(nn.Module):
         else:
             x = self.liner_layer(x)
             x = self.unflatten(x)
-            x = self.conv_layer(x)
-            x = torch.sigmoid(x)
-        return x
+            ans = []
+            for each in x:
+                ans.append(self.conv_layer(each))
+            x_hat = torch.stack(ans)
+            x_hat = torch.sigmoid(x_hat)
+        return x_hat
 
 
 class VAE(nn.Module):
     def __init__(self, feature_size=2048, conv_ip_size=(32, 14, 14), filters = [3,12,24,48,128],  
                  kernel_sizes = [3, 3, 3, 3], strides = [2, 2, 2, 2], output_paddings = [0,0,0,0], 
                  paddings = [0,0,0,0], hiddens_sizes = [2048, 1024, 512, 256, 3], return_only_conv=False, 
-                 return_only_liner=False, droput_prob=0.2):
+                 return_only_liner=False, droput_prob=0.2, n_samples=5):
         '''
         if return_only_liner=True, then conv_ip_size = (3, 128, 128) and hidden_sizes [3*128*128, ... , features_size]
         '''
         super(VAE, self).__init__()
-        self.encoder = Encoder(filters=filters, 
+        self.encoder_vae = Encoder_vae(filters=filters, 
                                kernel_sizes=kernel_sizes,strides=strides, hiddens_sizes=hiddens_sizes, 
                                return_only_conv=return_only_conv, return_only_liner=return_only_liner, 
-                               droput_prob=droput_prob, paddings=paddings)
+                               droput_prob=droput_prob, paddings=paddings, n_samples=5)
         
         self.decoder = Decoder(conv_op_size=conv_ip_size, filters=filters[::-1], 
                                kernel_sizes=kernel_sizes[::-1],strides=strides[::-1], output_paddings=output_paddings[::-1],
                                  paddings=paddings[::-1], hiddens_sizes=hiddens_sizes[::-1] , return_only_liner=return_only_liner)
     
     def forward(self,x):
-        enc, mu, logvar = self.encoder(x)
+        enc, mu, logvar = self.encoder_vae(x)
         x_hat = self.decoder(enc)
         x_hat_avg = x_hat.mean(dim=0)
         return x_hat_avg, enc, mu, logvar
 
     def loss_fn(self, x, x_hat, mu, logvar, beta=1):
         mse_loss = nn.MSELoss(reduction="sum")(x, x_hat)
-        kl_loss = -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp())
+        kl_loss = torch.sum(-0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp(), dim=1))
         return mse_loss+ beta*kl_loss, mse_loss, kl_loss
 
 
@@ -156,6 +159,6 @@ if __name__ == "__main__":
 
     # summary(ae, (3,128,128), device="cuda")
 
-    # e = Encoder()
+    # e = Encoder_vae()
     # eo = e(x)
     # eo.shape
