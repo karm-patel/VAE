@@ -21,9 +21,10 @@ cpu_device = torch.device("cpu")
 
 class Encoder(nn.Module):
     def __init__(self, filters,  kernel_sizes,  strides, hiddens_sizes, paddings, 
-                 return_only_conv=False, return_only_liner=False, droput_prob=0.1):
+                 return_only_conv=False, return_only_liner=False, droput_prob=0.1, curr_device="cuda"):
         super(Encoder, self).__init__()
         
+        self.curr_device = curr_device
         self.return_only_conv = return_only_conv
         self.return_only_liner = return_only_liner
         conv_layers = []
@@ -34,11 +35,12 @@ class Encoder(nn.Module):
         self.conv_layer = nn.Sequential(*conv_layers)
 
         hidden_layers = []
-        hiddens_sizes[-1] = hiddens_sizes[-1]*2 # mu and sigma
-        for i in range(len(hiddens_sizes)-1):
+        hiddens_sizes_cpy = hiddens_sizes.copy()
+        hiddens_sizes_cpy[-1] = hiddens_sizes_cpy[-1]*2 # mu and sigma
+        for i in range(len(hiddens_sizes_cpy)-1):
             hidden_layers.append(nn.Dropout(p=droput_prob))
-            hidden_layers.append(nn.Linear(hiddens_sizes[i], hiddens_sizes[i+1]))
-            if i < len(hiddens_sizes)-2:
+            hidden_layers.append(nn.Linear(hiddens_sizes_cpy[i], hiddens_sizes_cpy[i+1]))
+            if i < len(hiddens_sizes_cpy)-2:
                 hidden_layers.append(nn.ReLU(True))
         self.liner_layer = nn.Sequential(*hidden_layers)
 
@@ -62,9 +64,9 @@ class Encoder(nn.Module):
         z_dim = z.shape[-1]//2
         mu, log_var = z[:, :z_dim], z[:, z_dim:]
         sigma = torch.exp(0.5*log_var)
-        eps = torch.rannd(z_dim)
+        eps = torch.randn(z_dim).to(torch.device(self.curr_device))
         z = mu + sigma*eps
-        return z
+        return z, mu, log_var
 
     
 class Decoder(nn.Module):
@@ -88,7 +90,7 @@ class Decoder(nn.Module):
         for i in range(len(kernel_sizes)):
             conv_layers.append(nn.ConvTranspose2d(filters[i], filters[i+1], kernel_sizes[i], 
                                                   stride=strides[i], output_padding=output_paddings[i], padding=paddings[i]))
-            if i < len(kernel_sizes):
+            if i < len(kernel_sizes)-1:
                 conv_layers.append(nn.ReLU(True))
 
         self.conv_layer = nn.Sequential(*conv_layers)
@@ -116,7 +118,7 @@ class Decoder(nn.Module):
         return x
 
 
-class AutoEncoder(nn.Module):
+class VAE(nn.Module):
     def __init__(self, feature_size=2048, conv_ip_size=(32, 14, 14), filters = [3,12,24,48,128],  
                  kernel_sizes = [3, 3, 3, 3], strides = [2, 2, 2, 2], output_paddings = [0,0,0,0], 
                  paddings = [0,0,0,0], hiddens_sizes = [2048, 1024, 512, 256, 3], return_only_conv=False, 
@@ -124,7 +126,7 @@ class AutoEncoder(nn.Module):
         '''
         if return_only_liner=True, then conv_ip_size = (3, 128, 128) and hidden_sizes [3*128*128, ... , features_size]
         '''
-        super(AutoEncoder, self).__init__()
+        super(VAE, self).__init__()
         self.encoder = Encoder(filters=filters, 
                                kernel_sizes=kernel_sizes,strides=strides, hiddens_sizes=hiddens_sizes, 
                                return_only_conv=return_only_conv, return_only_liner=return_only_liner, 
@@ -135,18 +137,18 @@ class AutoEncoder(nn.Module):
                                  paddings=paddings[::-1], hiddens_sizes=hiddens_sizes[::-1] , return_only_liner=return_only_liner)
     
     def forward(self,x):
-        enc = self.encoder(x)
-        x = self.decoder(enc)
-        return x, enc
+        enc, mu, logvar = self.encoder(x)
+        x_hat = self.decoder(enc)
+        return x_hat, enc, mu, logvar
 
-    def loss_fn(self, x_hat, x, mu, logvar):
-        mse_loss = nn.MSELoss(x, x_hat)
-        kl_loss = -0.5 * torch.mean(1 + logvar - mu.pow(2) - logvar.exp())
-        return mse_loss+kl_loss, mse_loss, kl_loss
+    def loss_fn(self, x, x_hat, mu, logvar, beta=1):
+        mse_loss = nn.MSELoss(reduction="sum")(x, x_hat)
+        kl_loss = -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp())
+        return mse_loss+ beta*kl_loss, mse_loss, kl_loss
 
 
 if __name__ == "__main__":
-    ae = AutoEncoder().to(device)
+    ae = VAE().to(device)
     # op, enc = ae(x.to(device))
     # print(op.shape, enc.shape)
 
