@@ -19,10 +19,10 @@ import torchmetrics
 device = torch.device("cuda")
 cpu_device = torch.device("cpu")
 
-class Encoder_vae(nn.Module):
+class Encoder(nn.Module):
     def __init__(self, filters,  kernel_sizes,  strides, hiddens_sizes, paddings, 
                  return_only_conv=False, return_only_liner=False, droput_prob=0.1, curr_device="cuda", n_samples=5):
-        super(Encoder_vae, self).__init__()
+        super(Encoder, self).__init__()
         
         self.curr_device = curr_device
         self.return_only_conv = return_only_conv
@@ -131,7 +131,7 @@ class VAE(nn.Module):
         if return_only_liner=True, then conv_ip_size = (3, 128, 128) and hidden_sizes [3*128*128, ... , features_size]
         '''
         super(VAE, self).__init__()
-        self.encoder_vae = Encoder_vae(filters=filters, 
+        self.encoder = Encoder(filters=filters, 
                                kernel_sizes=kernel_sizes,strides=strides, hiddens_sizes=hiddens_sizes, 
                                return_only_conv=return_only_conv, return_only_liner=return_only_liner, 
                                droput_prob=droput_prob, paddings=paddings, n_samples=5)
@@ -141,7 +141,7 @@ class VAE(nn.Module):
                                  paddings=paddings[::-1], hiddens_sizes=hiddens_sizes[::-1] , return_only_liner=return_only_liner)
     
     def forward(self,x):
-        enc, mu, logvar = self.encoder_vae(x)
+        enc, mu, logvar = self.encoder(x)
         x_hat = self.decoder(enc)
         x_hat_avg = x_hat.mean(dim=0)
         return x_hat_avg, enc, mu, logvar
@@ -159,6 +159,6 @@ if __name__ == "__main__":
 
     # summary(ae, (3,128,128), device="cuda")
 
-    # e = Encoder_vae()
+    # e = Encoder()
     # eo = e(x)
     # eo.shape
