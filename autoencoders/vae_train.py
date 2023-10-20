@@ -1,5 +1,5 @@
 import os
-os.environ["CUDA_VISIBLE_DEVICES"] = "0"
+os.environ["CUDA_VISIBLE_DEVICES"] = "1"
 
 import zipfile
 # from natsort import natsorted
@@ -19,27 +19,17 @@ from tqdm import tqdm
 import torchmetrics
 from dataloader.animal_faces import AnimalfaceDataset
 from torchvision.utils import save_image, make_grid
-
+from torchvision.utils import save_image, make_grid
 # Load dataset
 device = torch.device("cuda")
 cpu_device = torch.device("cpu")
 
-class AddGaussianNoise(object):
-    def __init__(self, mean=0., std=1.):
-        self.std = std
-        self.mean = mean
-        
-    def __call__(self, tensor):
-        return tensor + torch.randn(tensor.size()) * self.std + self.mean
-    
-    def __repr__(self):
-        return self.__class__.__name__ + '(mean={0}, std={1})'.format(self.mean, self.std)
 
 width = 128
 train_transform = transforms.Compose([transforms.ToTensor(), transforms.Resize((width,width))])
 # train_transform = transforms.Compose([transforms.ToTensor()])
 
-train_data = AnimalfaceDataset(transform=train_transform, img_width=width)
+train_data = AnimalfaceDataset(transform=train_transform, img_width=width, type="train")
 
 val_transform = transforms.Compose([transforms.ToTensor(), transforms.Resize((width,width))])
 val_data = AnimalfaceDataset(transform=val_transform, type="val", img_width=width)
@@ -59,10 +49,10 @@ show_img(x)
 from models.vae2 import VAE, Encoder, Decoder
 
 
-n_samples = 4
-beta = 10
-for feature_size in [128]:
-    n_epochs = 70
+n_samples = 1
+feature_size = 32
+for beta in [0.01, 0.1, 0.001, 10]:
+    n_epochs = 50
     filters = [3, 16, 32, 64, 128, 256]
     kernel_sizes = [4, 4, 4, 4, 4]
     strides = [2,2,2,2,2]
@@ -101,7 +91,7 @@ for feature_size in [128]:
     # summary(vae, (3,width,width), device="cuda")
 
     
-    optim = torch.optim.Adam(vae.parameters(), lr=1e-4)
+    optim = torch.optim.Adam(vae.parameters(), lr=1e-3)
     losses = []
     val_losses = []
     for epoch in range(n_epochs):
@@ -133,7 +123,8 @@ for feature_size in [128]:
                     val_losses.append((loss.detach().to(cpu_device), mse_loss.detach().to(cpu_device), kl_loss.detach().to(cpu_device)))
                     
 
-    mu, torch.exp(logvar)
+    torch.save(vae.state_dict(), f"ckpts/vae_{feature_size}_1l_{beta}_{n_samples}.pt")
+
 
     import numpy as np
     to_cpu = lambda arr: [each.detach().to(cpu_device) for each in arr]
@@ -148,7 +139,7 @@ for feature_size in [128]:
 
     ax3.plot(np.array(val_losses)[:,2][0:], label="val KL loss")
     ax3.legend()
-    plt.savefig("figs/losses_" + model_name)
+    plt.savefig("figs/losses_" + model_name + ".pdf")
 
 
     latents = torch.randn((n_samples, 10*10, feature_size))
@@ -158,7 +149,7 @@ for feature_size in [128]:
     plt.imshow(generated_grid.permute(1,2,0).detach().to(cpu_device).numpy())
     save_image(generated_grid,f"images/vae_generated_{feature_size}_1l_{beta}_{n_samples}.png")
 
-    from torchvision.utils import save_image, make_grid
+    
     # Generation
     grid_size = 10
     # z = torch.rand(grid_size*grid_size, Z_DIM)
@@ -171,5 +162,3 @@ for feature_size in [128]:
     # generated_grid
 
     generated_grid.permute(1,2,0).shape
-
-    torch.save(vae.state_dict(), f"ckpts/vae_{feature_size}_1l_{beta}_{n_samples}.pt")
