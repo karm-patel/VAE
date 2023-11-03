@@ -2,3 +2,4 @@ animal-faces.zip
 animal-faces/
 .ipynb_checkpoints
 *.pyc
+autoencoders/ckpts/

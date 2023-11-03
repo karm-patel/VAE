@@ -49,9 +49,9 @@ show_img(x)
 from models.vae2 import VAE, Encoder, Decoder
 
 
-n_samples = 1
 feature_size = 32
-for beta in [0.01, 0.1, 0.001, 10]:
+beta = 0.01
+for n_samples in [4, 8,]:
     n_epochs = 50
     filters = [3, 16, 32, 64, 128, 256]
     kernel_sizes = [4, 4, 4, 4, 4]
